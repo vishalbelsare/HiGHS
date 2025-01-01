@@ -2,12 +2,7 @@
 /*                                                                       */
 /*    This file is part of the HiGHS linear optimization suite           */
 /*                                                                       */
-/*    Written and engineered 2008-2022 at the University of Edinburgh    */
-/*                                                                       */
 /*    Available as open-source under the MIT License                     */
-/*                                                                       */
-/*    Authors: Julian Hall, Ivet Galabova, Leona Gottwald and Michael    */
-/*    Feldmeier                                                          */
 /*                                                                       */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /**@file util/HFactorUtils.cpp
@@ -53,7 +48,7 @@ void HFactor::reportLu(const HighsInt l_u_or_both, const bool full) const {
       reportIntVector("ur_start", ur_start);
       reportIntVector("ur_lastp", ur_lastp);
       reportIntVector("ur_space", ur_space);
-      for (HighsInt iRow = 0; iRow < ur_start.size(); iRow++) {
+      for (size_t iRow = 0; iRow < ur_start.size(); iRow++) {
         const HighsInt start = ur_start[iRow];
         const HighsInt end = ur_lastp[iRow];
         if (start >= end) continue;

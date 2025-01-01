@@ -2,12 +2,7 @@
 /*                                                                       */
 /*    This file is part of the HiGHS linear optimization suite           */
 /*                                                                       */
-/*    Written and engineered 2008-2022 at the University of Edinburgh    */
-/*                                                                       */
 /*    Available as open-source under the MIT License                     */
-/*                                                                       */
-/*    Authors: Julian Hall, Ivet Galabova, Leona Gottwald and Michael    */
-/*    Feldmeier                                                          */
 /*                                                                       */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /**@file ipm/IpxWrapper.h
@@ -20,8 +15,8 @@
 #include <cassert>
 
 #include "ipm/IpxSolution.h"
-#include "ipm/ipx/include/ipx_status.h"
-#include "ipm/ipx/src/lp_solver.h"
+#include "ipm/ipx/ipx_status.h"
+#include "ipm/ipx/lp_solver.h"
 #include "lp_data/HighsSolution.h"
 
 HighsStatus solveLpIpx(HighsLpSolverObject& solver_object);
@@ -29,7 +24,8 @@ HighsStatus solveLpIpx(HighsLpSolverObject& solver_object);
 HighsStatus solveLpIpx(const HighsOptions& options, HighsTimer& timer,
                        const HighsLp& lp, HighsBasis& highs_basis,
                        HighsSolution& highs_solution,
-                       HighsModelStatus& model_status, HighsInfo& highs_info);
+                       HighsModelStatus& model_status, HighsInfo& highs_info,
+                       HighsCallback& callback);
 
 void fillInIpxData(const HighsLp& lp, ipx::Int& num_col, ipx::Int& num_row,
                    std::vector<double>& obj, std::vector<double>& col_lb,

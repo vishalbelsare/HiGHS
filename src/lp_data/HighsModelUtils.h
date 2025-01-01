@@ -2,12 +2,7 @@
 /*                                                                       */
 /*    This file is part of the HiGHS linear optimization suite           */
 /*                                                                       */
-/*    Written and engineered 2008-2022 at the University of Edinburgh    */
-/*                                                                       */
 /*    Available as open-source under the MIT License                     */
-/*                                                                       */
-/*    Authors: Julian Hall, Ivet Galabova, Leona Gottwald and Michael    */
-/*    Feldmeier                                                          */
 /*                                                                       */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /**@file lp_data/HighsModelUtils.h
@@ -16,14 +11,14 @@
 #ifndef LP_DATA_HIGHSMODELUTILS_H_
 #define LP_DATA_HIGHSMODELUTILS_H_
 
-//#include "Highs.h"
-//#include "lp_data/HighsStatus.h"
 #include "lp_data/HighsInfo.h"
 #include "model/HighsModel.h"
-//#include "lp_data/HStruct.h"
-//#include "lp_data/HighsInfo.h"
-//#include "lp_data/HighsLp.h"
-//#include "lp_data/HighsOptions.h"
+// #include "Highs.h"
+// #include "lp_data/HighsStatus.h"
+// #include "lp_data/HStruct.h"
+// #include "lp_data/HighsInfo.h"
+// #include "lp_data/HighsLp.h"
+// #include "lp_data/HighsOptions.h"
 
 // Analyse lower and upper bounds of a model
 void analyseModelBounds(const HighsLogOptions& log_options, const char* message,
@@ -33,15 +28,33 @@ bool hasNamesWithSpaces(const HighsLogOptions& log_options,
                         const HighsInt num_name,
                         const std::vector<std::string>& names);
 void writeModelBoundSolution(
-    FILE* file, const bool columns, const HighsInt dim,
-    const std::vector<double>& lower, const std::vector<double>& upper,
-    const std::vector<std::string>& names, const bool have_primal,
-    const std::vector<double>& primal, const bool have_dual,
-    const std::vector<double>& dual, const bool have_basis,
-    const std::vector<HighsBasisStatus>& status,
+    FILE* file, const HighsLogOptions& log_options, const bool columns,
+    const HighsInt dim, const std::vector<double>& lower,
+    const std::vector<double>& upper, const std::vector<std::string>& names,
+    const bool have_primal, const std::vector<double>& primal,
+    const bool have_dual, const std::vector<double>& dual,
+    const bool have_basis, const std::vector<HighsBasisStatus>& status,
     const HighsVarType* integrality = NULL);
-void writeModelSolution(FILE* file, const HighsLp& lp,
-                        const HighsSolution& solution, const HighsInfo& info);
+
+void writeModelObjective(FILE* file, const HighsLogOptions& log_options,
+                         const HighsModel& model,
+                         const std::vector<double>& primal_solution);
+
+void writeLpObjective(FILE* file, const HighsLogOptions& log_options,
+                      const HighsLp& lp,
+                      const std::vector<double>& primal_solution);
+
+void writeObjectiveValue(FILE* file, const HighsLogOptions& log_options,
+                         const double objective_value);
+
+void writePrimalSolution(FILE* file, const HighsLogOptions& log_options,
+                         const HighsLp& lp,
+                         const std::vector<double>& primal_solution,
+                         const bool sparse = false);
+
+void writeModelSolution(FILE* file, const HighsLogOptions& log_options,
+                        const HighsModel& model, const HighsSolution& solution,
+                        const HighsInfo& info, const bool sparse = false);
 
 HighsInt maxNameLength(const HighsInt num_name,
                        const std::vector<std::string>& names);
@@ -56,7 +69,8 @@ void writeSolutionFile(FILE* file, const HighsOptions& options,
                        const HighsModelStatus model_status,
                        const HighsInt style);
 
-void writeGlpsolCostRow(FILE* file, const bool raw, const bool is_mip,
+void writeGlpsolCostRow(FILE* file, const HighsLogOptions& log_options,
+                        const bool raw, const bool is_mip,
                         const HighsInt row_id, const std::string objective_name,
                         const double objective_function_value);
 
@@ -66,7 +80,8 @@ void writeGlpsolSolution(FILE* file, const HighsOptions& options,
                          const HighsModelStatus model_status,
                          const HighsInfo& info, const bool raw);
 
-void writeOldRawSolution(FILE* file, const HighsLp& lp, const HighsBasis& basis,
+void writeOldRawSolution(FILE* file, const HighsLogOptions& log_options,
+                         const HighsLp& lp, const HighsBasis& basis,
                          const HighsSolution& solution);
 
 HighsBasisStatus checkedVarHighsNonbasicStatus(
@@ -91,5 +106,7 @@ std::string typeToString(const HighsVarType type);
 
 std::string findModelObjectiveName(const HighsLp* lp,
                                    const HighsHessian* hessian = nullptr);
+
+// bool repeatedNames(const std::vector<std::string> name);
 
 #endif

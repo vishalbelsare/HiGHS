@@ -2,12 +2,7 @@
 /*                                                                       */
 /*    This file is part of the HiGHS linear optimization suite           */
 /*                                                                       */
-/*    Written and engineered 2008-2022 at the University of Edinburgh    */
-/*                                                                       */
 /*    Available as open-source under the MIT License                     */
-/*                                                                       */
-/*    Authors: Julian Hall, Ivet Galabova, Leona Gottwald and Michael    */
-/*    Feldmeier                                                          */
 /*                                                                       */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 #ifndef HIGHS_UTIL_HASH_H_
@@ -31,11 +26,15 @@
 #ifdef HIGHS_HAVE_BITSCAN_REVERSE
 #include <intrin.h>
 #pragma intrinsic(_BitScanReverse)
+#ifdef _WIN64
 #pragma intrinsic(_BitScanReverse64)
 #pragma intrinsic(__popcnt64)
+#else
+#pragma intrinsic(__popcnt)
+#endif
 #endif
 
-#if __GNUG__ && __GNUC__ < 5
+#if __GNUG__ && __GNUC__ < 5 && !defined(__clang__)
 #define IS_TRIVIALLY_COPYABLE(T) __has_trivial_copy(T)
 #else
 #define IS_TRIVIALLY_COPYABLE(T) std::is_trivially_copyable<T>::value
@@ -109,17 +108,30 @@ struct HighsHashHelpers {
 #elif defined(HIGHS_HAVE_BITSCAN_REVERSE)
   static int log2i(uint64_t n) {
     unsigned long result;
+#ifdef _WIN64
     _BitScanReverse64(&result, n);
-    return result;
+#else
+    if (_BitScanReverse(&result, (n >> 32)))
+      result += 32;
+    else
+      _BitScanReverse(&result, (n & 0xffffffffu));
+#endif
+    return static_cast<int>(result);
   }
 
   static int log2i(uint32_t n) {
     unsigned long result;
-    _BitScanReverse(&result, (unsigned long)n);
-    return result;
+    _BitScanReverse(&result, static_cast<unsigned long>(n));
+    return static_cast<int>(result);
   }
 
-  static int popcnt(uint64_t x) { return __popcnt64(x); }
+  static int popcnt(uint64_t x) {
+#ifdef _WIN64
+    return static_cast<int>(__popcnt64(x));
+#else
+    return __popcnt(x & 0xffffffffu) + __popcnt(x >> 32);
+#endif
+  }
 #else
   // integer log2 algorithm without floating point arithmetic. It uses an
   // unrolled loop and requires few instructions that can be well optimized.
@@ -238,7 +250,7 @@ struct HighsHashHelpers {
     u64 result = u64(a) * u64(b);
     result = (result >> 31) + (result & M31());
     if (result >= M31()) result -= M31();
-    return result;
+    return static_cast<u32>(result);
   }
 
   static u32 modexp_M31(u32 a, u64 e) {
@@ -262,7 +274,8 @@ struct HighsHashHelpers {
 
   template <HighsInt k>
   static u64 pair_hash(u32 a, u32 b) {
-    return (a + c[2 * k]) * (b + c[2 * k + 1]);
+    return (static_cast<u64>(a) + c[2 * k]) *
+           (static_cast<u64>(b) + c[2 * k + 1]);
   }
 
   static void sparse_combine(u64& hash, HighsInt index, u64 value) {
@@ -288,7 +301,7 @@ struct HighsHashHelpers {
     // algorithm for multiplication mod M61 might not work properly due to
     // overflow
     u64 a = c[index & 63] & M61();
-    HighsInt degree = (index >> 6) + 1;
+    u64 degree = (static_cast<u64>(index) >> 6) + 1;
 
     hash += multiply_modM61(value, modexp_M61(a, degree));
     hash = (hash >> 61) + (hash & M61());
@@ -309,7 +322,7 @@ struct HighsHashHelpers {
     value = ((value << 1) & M61()) | 1;
 
     u64 a = c[index & 63] & M61();
-    HighsInt degree = (index >> 6) + 1;
+    u64 degree = (static_cast<u64>(index) >> 6) + 1;
     // add the additive inverse (M61() - hashvalue) instead of the hash value
     // itself
     hash += M61() - multiply_modM61(value, modexp_M61(a, degree));
@@ -322,7 +335,7 @@ struct HighsHashHelpers {
   /// useful for sparse hashing of bit vectors
   static void sparse_combine(u64& hash, HighsInt index) {
     u64 a = c[index & 63] & M61();
-    HighsInt degree = (index >> 6) + 1;
+    u64 degree = (static_cast<u64>(index) >> 6) + 1;
 
     hash += modexp_M61(a, degree);
     hash = (hash >> 61) + (hash & M61());
@@ -342,7 +355,7 @@ struct HighsHashHelpers {
     // procedure.
 
     u64 a = c[index & 63] & M61();
-    HighsInt degree = (index >> 6) + 1;
+    u64 degree = (static_cast<u64>(index) >> 6) + 1;
     // add the additive inverse (M61() - hashvalue) instead of the hash value
     // itself
     hash += M61() - modexp_M61(a, degree);
@@ -368,18 +381,20 @@ struct HighsHashHelpers {
     // which we evaluate at the random vector of 16.
 
     // make sure input value is never zero and at most 31bits are used
-    value = (pair_hash<0>(value, value >> 32) >> 33) | 1;
+    value = (pair_hash<0>(static_cast<u32>(value), value >> 32) >> 33) | 1;
 
     // make sure that the constant has at most 31 bits, as otherwise the modulo
     // algorithm for multiplication mod M31 might not work properly due to
     // overflow
-    u32 a = c[index & 63] & M31();
-    HighsInt degree = (index >> 6) + 1;
+    u32 a = static_cast<u32>(c[index & 63] & M31());
+    u64 degree = (static_cast<u64>(index) >> 6) + 1;
 
-    hash += multiply_modM31(value, modexp_M31(a, degree));
-    hash = (hash >> 31) + (hash & M31());
-    if (hash >= M31()) hash -= M31();
-    assert(hash < M31());
+    u64 result = hash;
+    result += multiply_modM31(static_cast<u32>(value), modexp_M31(a, degree));
+    result = (result >> 31) + (result & M31());
+    if (result >= M31()) result -= M31();
+    assert(result < M31());
+    hash = static_cast<u32>(result);
   }
 
   static void sparse_inverse_combine32(u32& hash, HighsInt index, u64 value) {
@@ -392,16 +407,19 @@ struct HighsHashHelpers {
     // procedure.
 
     // make sure input value is never zero and at most 31bits are used
-    value = (pair_hash<0>(value, value >> 32) >> 33) | 1;
+    value = (pair_hash<0>(static_cast<u32>(value), value >> 32) >> 33) | 1;
 
-    u32 a = c[index & 63] & M31();
-    HighsInt degree = (index >> 6) + 1;
+    u32 a = static_cast<u32>(c[index & 63] & M31());
+    u64 degree = (static_cast<u64>(index) >> 6) + 1;
     // add the additive inverse (M31() - hashvalue) instead of the hash value
     // itself
-    hash += M31() - multiply_modM31(value, modexp_M31(a, degree));
-    hash = (hash >> 31) + (hash & M31());
-    if (hash >= M31()) hash -= M31();
-    assert(hash < M31());
+    u64 result = hash;
+    result +=
+        M31() - multiply_modM31(static_cast<u32>(value), modexp_M31(a, degree));
+    result = (result >> 31) + (result & M31());
+    if (result >= M31()) result -= M31();
+    assert(result < M31());
+    hash = static_cast<u32>(result);
   }
 
   static constexpr u64 fibonacci_muliplier() { return u64{0x9e3779b97f4a7c15}; }
@@ -731,7 +749,8 @@ struct HighsHashHelpers {
     // now be different values which exhibit the same pattern as the 0.5 case,
     // but they do not have a small denominator like 1/2 in their rational
     // representation but are power of two multiples of the golden ratio and
-    // therefore irrational, which we do not expect in non-artifical input data.
+    // therefore irrational, which we do not expect in non-artificial input
+    // data.
     int exponent;
     double hashbits = std::frexp(val * golden_ratio_reciprocal(), &exponent);
 
@@ -742,7 +761,7 @@ struct HighsHashHelpers {
     // defined to be UINT16_MAX - |exponent| when the exponent is negative.
     // casting the exponent to a uint32_t directly would give wrong promotion
     // of negative exponents as UINT32_MAX - |exponent| and take up to many bits
-    // or possibly loose information after the 16 bit shift. For the mantissa we
+    // or possibly lose information after the 16 bit shift. For the mantissa we
     // take the 15 most significant bits, even though we could squeeze out a few
     // more of the exponent. We don't need more bits as this would make the
     // buckets very small and might miss more values that are equal within
@@ -798,7 +817,7 @@ struct HighsHashTableEntry {
   // and the value as default
   // the enable if statement makes sure this overload is never selected
   // when the type of the single argument is HighsHashTableEntry<K,V> so that
-  // the default move and copy constructures are preferred when they match
+  // the default move and copy constructors are preferred when they match
   // and this is only used to initialize the key type from a single argument.
   template <
       typename K_,
@@ -853,7 +872,7 @@ struct HighsHashTableEntry<T, void> {
   // Add a constructor to accept an arbitrary argument pack for initialize the
   // underlying value of type T. The enable if statement makes sure this
   // overload is never selected when the type of the single argument is
-  // HighsHashTableEntry<T,void> so that the default move and copy constructures
+  // HighsHashTableEntry<T,void> so that the default move and copy constructors
   // are preferred when they match and this is only used to initialize the value
   // of type from a set of arguments which are properly forwarded.
   // The std::tuple usage in enable_if is a work-around to make the statement
@@ -926,8 +945,8 @@ class HighsHashTable {
     using pointer = IterType*;
     using reference = IterType&;
     using iterator_category = std::forward_iterator_tag;
-    HashTableIterator(u8* pos, u8* end, Entry* entryEnd)
-        : pos(pos), end(end), entryEnd(entryEnd) {}
+    HashTableIterator(u8* pos_, u8* end_, Entry* entryEnd_)
+        : pos(pos_), end(end_), entryEnd(entryEnd_) {}
     HashTableIterator() = default;
 
     HashTableIterator<IterType> operator++(int) {
@@ -966,8 +985,8 @@ class HighsHashTable {
 
   HighsHashTable() { makeEmptyTable(128); }
   HighsHashTable(u64 minCapacity) {
-    u64 initCapacity = u64{1} << (u64)std::ceil(
-                           std::log2(std::max(128.0, 8 * minCapacity / 7.0)));
+    u64 initCapacity = u64{1} << (u64)std::ceil(std::log2(std::max(
+                           128.0, 8 * static_cast<double>(minCapacity) / 7)));
     makeEmptyTable(initCapacity);
   }
 
@@ -1024,7 +1043,7 @@ class HighsHashTable {
   u64 distanceFromIdealSlot(u64 pos) const {
     // we store 7 bits of the hash in the metadata. Assuming a decent
     // hashfunction it is practically never happening that an item travels more
-    // then 127 slots from its ideal position, therefore, we can compute the
+    // than 127 slots from its ideal position, therefore, we can compute the
     // distance from the ideal position just as it would normally be done
     // assuming there is at most one overflow. Consider using 3 bits which gives
     // values from 0 to 7. When an item is at a position with lower bits 7 and

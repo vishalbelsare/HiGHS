@@ -2,12 +2,7 @@
 /*                                                                       */
 /*    This file is part of the HiGHS linear optimization suite           */
 /*                                                                       */
-/*    Written and engineered 2008-2022 at the University of Edinburgh    */
-/*                                                                       */
 /*    Available as open-source under the MIT License                     */
-/*                                                                       */
-/*    Authors: Julian Hall, Ivet Galabova, Leona Gottwald and Michael    */
-/*    Feldmeier                                                          */
 /*                                                                       */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /**@file util/HFactor.h
@@ -31,6 +26,8 @@
 using std::max;
 // using std::min;
 using std::vector;
+
+const HighsInt kBuildKernelReturnTimeout = -1;
 
 struct InvertibleRepresentation {
   // Factor L
@@ -105,6 +102,37 @@ struct InvertibleRepresentation {
  */
 class HFactor {
  public:
+  HFactor()
+      : build_realTick(0.0),
+        build_synthetic_tick(0.0),
+        rank_deficiency(0),
+        basis_matrix_num_el(0),
+        invert_num_el(0),
+        kernel_dim(0),
+        kernel_num_el(0),
+        num_row(0),
+        num_col(0),
+        num_basic(0),
+        a_matrix_valid(false),
+        a_start(nullptr),
+        a_index(nullptr),
+        a_value(nullptr),
+        basic_index(nullptr),
+        pivot_threshold(0.0),
+        pivot_tolerance(0.0),
+        highs_debug_level(0),
+        time_limit_(0.0),
+        use_original_HFactor_logic(false),
+        debug_report_(false),
+        basis_matrix_limit_size(0),
+        update_method(0),
+        build_timer_(nullptr),
+        nwork(0),
+        u_merit_x(0),
+        // clang-format off
+        u_total_x(0) {};
+  // clang-format on
+
   /**
    * @brief Copy problem size and pointers of constraint matrix, and set
    * up space for INVERT
@@ -212,11 +240,11 @@ class HFactor {
    */
   bool setPivotThreshold(
       const double new_pivot_threshold = kDefaultPivotThreshold);
+
   /**
-   * @brief Sets minimum absolute pivot
+   * @brief Sets a time limit
    */
-  bool setMinAbsPivot(
-      const double new_pivot_tolerance = kDefaultPivotTolerance);
+  void setTimeLimit(const double time_limit);
 
   /**
    * @brief Updates instance with respect to new columns in the
@@ -304,10 +332,10 @@ class HFactor {
   RefactorInfo refactor_info_;
 
   // Properties of data held in HFactor.h
-  HighsInt basis_matrix_num_el = 0;
-  HighsInt invert_num_el = 0;
-  HighsInt kernel_dim = 0;
-  HighsInt kernel_num_el = 0;
+  HighsInt basis_matrix_num_el;
+  HighsInt invert_num_el;
+  HighsInt kernel_dim;
+  HighsInt kernel_num_el;
 
   /**
    * Data of the factor
@@ -318,6 +346,7 @@ class HFactor {
   HighsInt num_row;
   HighsInt num_col;
   HighsInt num_basic;
+  double inv_num_row;  // 1.0/num_row
 
  private:
   bool a_matrix_valid;
@@ -328,6 +357,7 @@ class HFactor {
   double pivot_threshold;
   double pivot_tolerance;
   HighsInt highs_debug_level;
+  double time_limit_;
 
   struct LogData {
     bool output_flag;
@@ -338,9 +368,12 @@ class HFactor {
   HighsLogOptions log_options;
 
   bool use_original_HFactor_logic;
-  bool debug_report_ = false;
+  bool debug_report_;
   HighsInt basis_matrix_limit_size;
   HighsInt update_method;
+
+  // Internal timing
+  HighsTimer* build_timer_;
 
   // Working buffer
   HighsInt nwork;

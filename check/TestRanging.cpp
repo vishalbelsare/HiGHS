@@ -1,3 +1,4 @@
+#include "HCheckConfig.h"
 #include "Highs.h"
 #include "SpecialLps.h"
 #include "catch.hpp"
@@ -100,7 +101,7 @@ void assessNewBounds(double& lower, double& upper) {
 
 bool modelStatusOk(Highs& highs) {
   if (highs.getModelStatus() == HighsModelStatus::kOptimal) return true;
-  if (highs.getModelStatus(true) == HighsModelStatus::kOptimal) return true;
+  // if (highs.getModelStatus(true) == HighsModelStatus::kOptimal) return true;
   return false;
 }
 

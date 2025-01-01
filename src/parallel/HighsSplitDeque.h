@@ -176,7 +176,7 @@ class HighsSplitDeque {
   static_assert(sizeof(StealerData) <= 64,
                 "sizeof(StealerData) exceeds cache line size");
   static_assert(sizeof(WorkerBunkData) <= 64,
-                "sizeof(GlobalQueueData) exceeds cache line size");
+                "sizeof(WorkerBunkData) exceeds cache line size");
 
   alignas(64) OwnerData ownerData;
   alignas(64) std::atomic<bool> splitRequest;
@@ -274,7 +274,7 @@ class HighsSplitDeque {
   }
 
   void cancelTask(HighsInt taskIndex) {
-    assert(taskIndex < ownerData.head);
+    assert(taskIndex < (HighsInt)ownerData.head);
     assert(taskIndex >= 0);
     taskArray[taskIndex].cancel();
   }

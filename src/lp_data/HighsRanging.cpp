@@ -2,12 +2,7 @@
 /*                                                                       */
 /*    This file is part of the HiGHS linear optimization suite           */
 /*                                                                       */
-/*    Written and engineered 2008-2022 at the University of Edinburgh    */
-/*                                                                       */
 /*    Available as open-source under the MIT License                     */
-/*                                                                       */
-/*    Authors: Julian Hall, Ivet Galabova, Leona Gottwald and Michael    */
-/*    Feldmeier                                                          */
 /*                                                                       */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /**@file lp_data/HighsRanging.cpp
@@ -94,8 +89,6 @@ HighsStatus getRangingData(HighsRanging& ranging,
   // Aliases
   const HighsSimplexInfo& simplex_info = ekk_instance.info_;
   const SimplexBasis& simplex_basis = ekk_instance.basis_;
-  const vector<double>& col_scale = use_lp.scale_.col;
-  const vector<double>& row_scale = use_lp.scale_.row;
   const vector<double>& value_ = simplex_info.workValue_;
   const vector<double>& dual_ = simplex_info.workDual_;
   const vector<double>& cost_ = simplex_info.workCost_;
@@ -230,7 +223,6 @@ HighsStatus getRangingData(HighsRanging& ranging,
       double alpha = dWork_[myk_inc];
       ixj_inc[j] = i;
       axj_inc[j] = alpha;
-      const double numerator = (alpha < 0 ? dxi_inc[i] : dxi_dec[i]);
       txj_inc[j] = (alpha < 0 ? dxi_inc[i] : dxi_dec[i]) / -alpha;
       wxj_inc[j] = (alpha < 0 ? +1 : -1);
     }
@@ -297,7 +289,7 @@ HighsStatus getRangingData(HighsRanging& ranging,
   vector<HighsInt> c_up_l(numTotal), c_dn_l(numTotal);
 
   //
-  // Ranging 2.1. non-basic cost ranging
+  // Ranging 2.1. nonbasic cost ranging
   //
   //  const HighsInt check_col = 2951;
   for (HighsInt j = 0; j < numCol; j++) {
@@ -390,7 +382,7 @@ HighsStatus getRangingData(HighsRanging& ranging,
   vector<HighsInt> b_up_l(numTotal), b_dn_l(numTotal);
 
   //
-  // Ranging 3.1. non-basic bounds ranging
+  // Ranging 3.1. nonbasic bounds ranging
   //
   for (HighsInt j = 0; j < numTotal; j++) {
     if (Nflag_[j]) {
@@ -636,8 +628,8 @@ void writeRangingFile(FILE* file, const HighsLp& lp,
   std::array<char, 32> dn_value;
   std::array<char, 32> up_value;
 
-  std::array<char, 32> objective = highsDoubleToString(
-      objective_function_value, kRangingValueToStringTolerance);
+  auto objective = highsDoubleToString(objective_function_value,
+                                       kRangingValueToStringTolerance);
   fprintf(file, "Objective %s\n", objective.data());
   if (pretty) {
     fprintf(file,

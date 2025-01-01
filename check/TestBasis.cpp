@@ -1,5 +1,6 @@
 #include <fstream>
 
+#include "HCheckConfig.h"
 #include "Highs.h"
 #include "catch.hpp"
 
@@ -70,7 +71,6 @@ TEST_CASE("Basis-file", "[highs_basis_file]") {
   std::remove(invalid_basis_file.c_str());
 }
 
-// No commas in test case name.
 TEST_CASE("Basis-data", "[highs_basis_data]") {
   HighsStatus return_status;
   std::string model0_file =
@@ -97,6 +97,88 @@ TEST_CASE("Basis-data", "[highs_basis_data]") {
   testBasisReloadModel(highs, false);
 }
 
+TEST_CASE("set-pathological-basis", "[highs_basis_data]") {
+  Highs highs;
+  highs.setOptionValue("output_flag", dev_run);
+  HighsBasis basis;
+
+  basis.clear();
+  highs.clearSolver();
+  highs.addCol(1.0, 0, 1, 0, nullptr, nullptr);
+  HighsInt index = 0;
+  double value = 1.0;
+  highs.addRow(0, 1, 1, &index, &value);
+  // Set up a basis with everything nonbasic. This will lead to
+  // basic_index being empty when passed to
+  // HFactor::setupGeneral. Previously this led to the creation of
+  // pointer &basic_index[0] that caused Windows failure referenced in
+  // #1129, and reported in #1166. However, now that
+  // basic_index.data() is used to create the pointer, there is no
+  // Windows failure. Within HFactor::setupGeneral and
+  // HFactor::build(), the empty list of basic variables is handled
+  // correctly - with a basis of logicals being created
+  basis.col_status.push_back(HighsBasisStatus::kLower);
+  basis.row_status.push_back(HighsBasisStatus::kLower);
+  highs.setBasis(basis);
+  highs.run();
+  REQUIRE(highs.getModelStatus() == HighsModelStatus::kOptimal);
+
+  basis.clear();
+  highs.clearModel();
+  highs.addCol(1.0, -kHighsInf, kHighsInf, 0, nullptr, nullptr);
+  basis.col_status.push_back(HighsBasisStatus::kBasic);
+  highs.setBasis(basis);
+  highs.run();
+  REQUIRE(highs.getModelStatus() == HighsModelStatus::kUnbounded);
+}
+
+TEST_CASE("Basis-no-basic", "[highs_basis_data]") {
+  Highs highs;
+  highs.setOptionValue("output_flag", dev_run);
+  highs.addCol(1.0, 0, 1, 0, nullptr, nullptr);
+  highs.addCol(-1.0, 0, 1, 0, nullptr, nullptr);
+  std::vector<HighsInt> index = {0, 1};
+  std::vector<double> value = {1.0, 2.0};
+  highs.addRow(0, 1, 2, index.data(), value.data());
+  value[0] = -1.0;
+  highs.addRow(0, 1, 2, index.data(), value.data());
+  // Make all variables basic. This is a 2-row version of
+  // set-pathological-basis
+  HighsBasis basis;
+  basis.col_status.push_back(HighsBasisStatus::kLower);
+  basis.col_status.push_back(HighsBasisStatus::kLower);
+  basis.row_status.push_back(HighsBasisStatus::kLower);
+  basis.row_status.push_back(HighsBasisStatus::kLower);
+  REQUIRE(highs.setBasis(basis) == HighsStatus::kOk);
+  highs.run();
+  if (dev_run) highs.writeSolution("", 1);
+  REQUIRE(highs.getInfo().objective_function_value == -0.5);
+  REQUIRE(highs.getModelStatus() == HighsModelStatus::kOptimal);
+}
+
+TEST_CASE("Basis-singular", "[highs_basis_data]") {
+  Highs highs;
+  highs.setOptionValue("output_flag", dev_run);
+  HighsLp lp;
+  lp.num_col_ = 2;
+  lp.num_row_ = 2;
+  lp.col_cost_ = {1, 1};
+  lp.col_lower_ = {0, 0};
+  lp.col_upper_ = {1, 1};
+  lp.row_lower_ = {1, 1};
+  lp.row_upper_ = {2, 2};
+  lp.a_matrix_.start_ = {0, 2, 4};
+  lp.a_matrix_.index_ = {0, 1, 0, 1};
+  lp.a_matrix_.value_ = {1, 2, 2, 4};
+  highs.passModel(lp);
+  HighsBasis basis;
+  REQUIRE(highs.setBasis(basis) == HighsStatus::kError);
+  basis.col_status = {HighsBasisStatus::kBasic, HighsBasisStatus::kBasic};
+  basis.row_status = {HighsBasisStatus::kLower, HighsBasisStatus::kLower};
+  REQUIRE(highs.setBasis(basis) == HighsStatus::kOk);
+}
+
+// No commas in test case name.
 void testBasisReloadModel(Highs& highs, const bool from_file) {
   // Checks that no simplex iterations are required if a saved optimal
   // basis is used for the original LP after solving a different LP
@@ -144,6 +226,7 @@ void testBasisReloadModel(Highs& highs, const bool from_file) {
   //  highs.writeSolution("", kSolutionStyleRaw);
   REQUIRE(highs.getInfo().simplex_iteration_count == 0);
 }
+
 void testBasisRestart(Highs& highs, const bool from_file) {
   // Checks that no simplex iterations are required if a saved optimal
   // basis is used for the original LP after changing a bound, solving

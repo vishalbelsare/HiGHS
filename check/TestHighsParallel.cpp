@@ -1,3 +1,4 @@
+#include "HCheckConfig.h"
 
 #if 0
 #include <omp.h>
@@ -123,7 +124,7 @@ void matrix_multiplication_omp(unsigned nthreads) {
 }
 #endif
 void matrix_multiplication_highs(unsigned nthreads) {
-  //#pragma omp parallel for private(i, j)
+  // #pragma omp parallel for private(i, j)
   parallel::for_each(0, N, [&](HighsInt start, HighsInt end) {
     for (int i = start; i < end; ++i) {
       for (int j = 0; j < N; j++) {

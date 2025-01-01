@@ -1,4 +1,9 @@
-#################
+### Meson ###
+# subproject directories
+/subprojects/*
+!/subprojects/*.wrap
+
+# #################
 ## Eclipse
 #################
 
@@ -237,13 +242,14 @@ pip-log.txt
 
 #Virtual Studio directory
 .vscode/
+.vs/
 
 #Unit test fallout
 
 #SCIP interface
 lpi_highs.cpp
 
-src/interfaces/highspy/highspy/highs_bindings.*.so
+src/highspy/highs_bindings.*.so
 
 # Model written with HiGHSDEV=on
 HighsRunModel.mps
@@ -265,3 +271,19 @@ adlittle.lp
 qjh.mps
 
 *.whl
+bazel*
+MODULE.bazel
+MODULE.bazel.lock
+
+# webdemo
+build_webdemo
+
+CMakeSettings.json
+
+# Nix
+.direnv/
+result
+
+# Extra unit tests
+highs-unit-tests
+highs-problem-set

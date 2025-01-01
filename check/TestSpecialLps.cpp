@@ -1,3 +1,4 @@
+#include "HCheckConfig.h"
 #include "Highs.h"
 #include "SpecialLps.h"
 #include "catch.hpp"
@@ -10,13 +11,19 @@ void solve(Highs& highs, std::string presolve, std::string solver,
            const double require_iteration_count = -1) {
   SpecialLps special_lps;
   if (!dev_run) highs.setOptionValue("output_flag", false);
+  if (dev_run)
+    REQUIRE(highs.setOptionValue("log_dev_level", kHighsLogDevLevelDetailed) ==
+            HighsStatus::kOk);
+  if (dev_run)
+    printf("\n*****\nSolving with presolve = %s amd solver = %s\n",
+           presolve.c_str(), solver.c_str());
   const HighsInfo& info = highs.getInfo();
 
   REQUIRE(highs.setOptionValue("solver", solver) == HighsStatus::kOk);
 
   REQUIRE(highs.setOptionValue("presolve", presolve) == HighsStatus::kOk);
 
-  REQUIRE(highs.setBasis() == HighsStatus::kOk);
+  REQUIRE(highs.clearSolver() == HighsStatus::kOk);
 
   REQUIRE(highs.run() == HighsStatus::kOk);
 
@@ -53,9 +60,7 @@ void distillation(Highs& highs) {
   REQUIRE(highs.passModel(lp) == HighsStatus::kOk);
   // Presolve doesn't reduce the LP
   solve(highs, "on", "simplex", require_model_status, optimal_objective);
-#ifndef HIGHSINT64
   solve(highs, "on", "ipm", require_model_status, optimal_objective);
-#endif
 }
 
 void issue272(Highs& highs) {
@@ -70,16 +75,13 @@ void issue272(Highs& highs) {
   // Presolve reduces to empty, so no need to test presolve+IPX
   solve(highs, "on", "simplex", require_model_status, optimal_objective);
   solve(highs, "off", "simplex", require_model_status, optimal_objective);
-#ifndef HIGHSINT64
   solve(highs, "on", "ipm", require_model_status, optimal_objective);
   solve(highs, "off", "ipm", require_model_status, optimal_objective);
-#endif
 }
 
 void issue280(Highs& highs) {
   SpecialLps special_lps;
   special_lps.reportIssue(280, dev_run);
-  // This is an easy problem from mckib2 that IPX STILL FAILS to handle
   HighsLp lp;
   HighsModelStatus require_model_status;
   double optimal_objective;
@@ -89,8 +91,7 @@ void issue280(Highs& highs) {
   solve(highs, "on", "simplex", require_model_status, optimal_objective);
   solve(highs, "off", "simplex", require_model_status, optimal_objective);
   special_lps.reportSolution(highs, dev_run);
-  // STILL FAILS!!! Reported to Lukas as issue #1 on IPX
-  //  solve(highs, "off", "ipm", require_model_status, optimal_objective);
+  solve(highs, "off", "ipm", require_model_status, optimal_objective);
 }
 
 void issue282(Highs& highs) {
@@ -106,10 +107,8 @@ void issue282(Highs& highs) {
   // Presolve reduces to empty, so no real need to test presolve+IPX
   solve(highs, "on", "simplex", require_model_status, optimal_objective);
   solve(highs, "off", "simplex", require_model_status, optimal_objective);
-#ifndef HIGHSINT64
   solve(highs, "on", "ipm", require_model_status, optimal_objective);
   solve(highs, "off", "ipm", require_model_status, optimal_objective);
-#endif
 }
 
 void issue285(Highs& highs) {
@@ -124,10 +123,8 @@ void issue285(Highs& highs) {
   // Presolve identifies infeasibility, so no need to test presolve+IPX
   solve(highs, "on", "simplex", require_model_status);
   solve(highs, "off", "simplex", require_model_status);
-#ifndef HIGHSINT64
   solve(highs, "on", "ipm", require_model_status);
   solve(highs, "off", "ipm", require_model_status);
-#endif
 }
 
 void issue295(Highs& highs) {
@@ -148,10 +145,8 @@ void issue295(Highs& highs) {
   REQUIRE(highs.passModel(lp) == HighsStatus::kOk);
   solve(highs, "on", "simplex", require_model_status, optimal_objective);
   solve(highs, "off", "simplex", require_model_status, optimal_objective);
-#ifndef HIGHSINT64
   solve(highs, "on", "ipm", require_model_status, optimal_objective);
   solve(highs, "off", "ipm", require_model_status, optimal_objective);
-#endif
 }
 
 void issue306(Highs& highs) {
@@ -168,10 +163,8 @@ void issue306(Highs& highs) {
   REQUIRE(highs.passModel(lp) == HighsStatus::kOk);
   solve(highs, "on", "simplex", require_model_status, optimal_objective);
   solve(highs, "off", "simplex", require_model_status, optimal_objective);
-#ifndef HIGHSINT64
   solve(highs, "on", "ipm", require_model_status, optimal_objective);
   solve(highs, "off", "ipm", require_model_status, optimal_objective);
-#endif
 }
 
 void issue316(Highs& highs) {
@@ -212,9 +205,7 @@ void issue425(Highs& highs) {
   REQUIRE(highs.passModel(lp) == HighsStatus::kOk);
   solve(highs, "on", "simplex", require_model_status, 0, -1);
   solve(highs, "off", "simplex", require_model_status, 0, 3);
-#ifndef HIGHSINT64
   solve(highs, "off", "ipm", require_model_status, 0, 4);
-#endif
 }
 
 void issue669(Highs& highs) {
@@ -386,17 +377,16 @@ void mpsGalenet(Highs& highs) {
 
   solve(highs, "on", "simplex", require_model_status);
   solve(highs, "off", "simplex", require_model_status);
-#ifndef HIGHSINT64
   solve(highs, "on", "ipm", require_model_status);
   solve(highs, "off", "ipm", require_model_status);
-#endif
 }
 
 void primalDualInfeasible1(Highs& highs) {
   SpecialLps special_lps;
   special_lps.reportLpName("primalDualInfeasible1", dev_run);
-  // This LP is both primal and dual infeasible - from Wikipedia. IPX
-  // fails to identify primal infeasibility
+  // This LP is both primal and dual infeasible - from Wikipedia
+  //
+  // IPX fails to identify primal infeasibility
   HighsLp lp;
   HighsModelStatus require_model_status;
   special_lps.primalDualInfeasible1Lp(lp, require_model_status);
@@ -404,8 +394,7 @@ void primalDualInfeasible1(Highs& highs) {
   // Presolve doesn't reduce the LP, but does identify primal infeasibility
   solve(highs, "on", "simplex", HighsModelStatus::kInfeasible);
   solve(highs, "off", "simplex", require_model_status);
-  // Don't run the IPX test until it's fixed
-  //  solve(highs, "on", "ipm", require_model_status);
+  solve(highs, "off", "ipm", require_model_status);
 }
 
 void primalDualInfeasible2(Highs& highs) {
@@ -422,6 +411,22 @@ void primalDualInfeasible2(Highs& highs) {
   // ERROR without presolve because primal simplex solver not available
   //  solve(highs, "off", "simplex", require_model_status);
   //  solve(highs, "on", "ipm", require_model_status);
+}
+
+void primalDualInfeasible3(Highs& highs) {
+  SpecialLps special_lps;
+  special_lps.reportLpName("primalDualInfeasible3", dev_run);
+  // This LP is both primal and dual infeasible, but looks primal
+  // unbounded. An example of why simple primal unboundedness can't be
+  // claimed
+  HighsLp lp;
+  HighsModelStatus require_model_status;
+  special_lps.primalDualInfeasible3Lp(lp, require_model_status);
+  REQUIRE(highs.passModel(lp) == HighsStatus::kOk);
+  // Presolve doesn't reduce the LP, but does identify primal infeasibility
+  solve(highs, "on", "simplex", require_model_status);
+  solve(highs, "off", "simplex", require_model_status);
+  solve(highs, "off", "ipm", require_model_status);
 }
 
 void mpsUnbounded(Highs& highs) {
@@ -462,10 +467,8 @@ void mpsGas11(Highs& highs) {
 
   solve(highs, "on", "simplex", require_model_status);
   solve(highs, "off", "simplex", require_model_status);
-#ifndef HIGHSINT64
   solve(highs, "on", "ipm", require_model_status);
   solve(highs, "off", "ipm", require_model_status);
-#endif
 }
 
 void almostNotUnbounded(Highs& highs) {
@@ -511,9 +514,7 @@ void almostNotUnbounded(Highs& highs) {
   //  REQUIRE(highs.writeModel("epsilon_unbounded.mps") ==
   //  HighsStatus::WARNING);
   solve(highs, "off", "simplex", require_model_status0);
-#ifndef HIGHSINT64
   solve(highs, "off", "ipm", require_model_status0);
-#endif
 
   // LP is feasible on [1+alpha, alpha] with objective -1 so optimal,
   // but has open set of optimal solutions
@@ -522,9 +523,7 @@ void almostNotUnbounded(Highs& highs) {
 
   solve(highs, "off", "simplex", require_model_status1, optimal_objective1);
   special_lps.reportSolution(highs, dev_run);
-#ifndef HIGHSINT64
   solve(highs, "off", "ipm", require_model_status1, optimal_objective1);
-#endif
 
   // LP has bounded feasible region with optimal solution
   // [1+2/epsilon, 2/epsilon] and objective
@@ -536,9 +535,7 @@ void almostNotUnbounded(Highs& highs) {
 
   solve(highs, "off", "simplex", require_model_status2, optimal_objective2);
   special_lps.reportSolution(highs, dev_run);
-#ifndef HIGHSINT64
   solve(highs, "off", "ipm", require_model_status2, optimal_objective2);
-#endif
 }
 
 void singularStartingBasis(Highs& highs) {
@@ -608,7 +605,10 @@ void unconstrained(Highs& highs) {
   lp.a_matrix_.start_ = {0, 0, 0};
   lp.a_matrix_.format_ = MatrixFormat::kColwise;
   REQUIRE(highs.passModel(lp) == HighsStatus::kOk);
-  REQUIRE(highs.setOptionValue("presolve", "off") == HighsStatus::kOk);
+  // No need to turn off presolve, since unconstrained LPs are
+  // automatically solved directly
+  //
+  //  REQUIRE(highs.setOptionValue("presolve", "off") == HighsStatus::kOk);
   REQUIRE(highs.run() == HighsStatus::kOk);
   REQUIRE(highs.getModelStatus() == HighsModelStatus::kOptimal);
   REQUIRE(highs.getObjectiveValue() == 1);
@@ -704,6 +704,11 @@ TEST_CASE("LP-primal-dual-infeasible2", "[highs_test_special_lps]") {
   Highs highs;
   if (!dev_run) highs.setOptionValue("output_flag", false);
   primalDualInfeasible2(highs);
+}
+TEST_CASE("LP-primal-dual-infeasible3", "[highs_test_special_lps]") {
+  Highs highs;
+  if (!dev_run) highs.setOptionValue("output_flag", false);
+  primalDualInfeasible3(highs);
 }
 TEST_CASE("LP-unbounded", "[highs_test_special_lps]") {
   Highs highs;

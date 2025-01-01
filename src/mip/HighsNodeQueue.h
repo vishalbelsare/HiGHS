@@ -2,12 +2,7 @@
 /*                                                                       */
 /*    This file is part of the HiGHS linear optimization suite           */
 /*                                                                       */
-/*    Written and engineered 2008-2022 at the University of Edinburgh    */
-/*                                                                       */
 /*    Available as open-source under the MIT License                     */
-/*                                                                       */
-/*    Authors: Julian Hall, Ivet Galabova, Leona Gottwald and Michael    */
-/*    Feldmeier                                                          */
 /*                                                                       */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -108,8 +103,8 @@ class HighsNodeQueue {
               reinterpret_cast<FreelistNode*>(state->freeListHead)->next;
         } else {
           ptr = reinterpret_cast<T*>(state->currChunkStart);
-          state->currChunkStart += sizeof(FreelistNode);
-          if (state->currChunkStart > state->currChunkEnd) {
+          if (!ptr || state->currChunkStart + sizeof(FreelistNode) >
+                          state->currChunkEnd) {
             auto newChunk = new Chunk;
             newChunk->next = state->chunkListHead;
             state->chunkListHead = newChunk;
@@ -117,6 +112,8 @@ class HighsNodeQueue {
             state->currChunkEnd =
                 state->currChunkStart + sizeof(newChunk->storage);
             ptr = reinterpret_cast<T*>(state->currChunkStart);
+            state->currChunkStart += sizeof(FreelistNode);
+          } else {
             state->currChunkStart += sizeof(FreelistNode);
           }
         }
@@ -288,11 +285,7 @@ class HighsNodeQueue {
 
   HighsInt getBestBoundDomchgStackSize() const;
 
-  void clear() {
-    HighsNodeQueue nodequeue;
-    nodequeue.setNumCol(numCol);
-    *this = std::move(nodequeue);
-  }
+  void clear();
 
   int64_t numNodes() const { return nodes.size() - freeslots.size(); }
 

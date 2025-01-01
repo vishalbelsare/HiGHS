@@ -2,12 +2,7 @@
 /*                                                                       */
 /*    This file is part of the HiGHS linear optimization suite           */
 /*                                                                       */
-/*    Written and engineered 2008-2022 at the University of Edinburgh    */
-/*                                                                       */
 /*    Available as open-source under the MIT License                     */
-/*                                                                       */
-/*    Authors: Julian Hall, Ivet Galabova, Leona Gottwald and Michael    */
-/*    Feldmeier                                                          */
 /*                                                                       */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /**@file util/HVector.h
@@ -79,7 +74,7 @@ class HVectorBase {
   vector<Real> packValue;      //!< Packed values
 
   /**
-   * @brief Copy from another HVector structure to this instanc
+   * @brief Copy from another HVector structure to this instance
    */
   template <typename FromReal>
   void copy(const HVectorBase<FromReal>*

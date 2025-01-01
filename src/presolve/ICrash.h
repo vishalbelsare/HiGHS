@@ -2,8 +2,6 @@
 /*                                                                       */
 /*    This file is part of the HiGHS linear optimization suite           */
 /*                                                                       */
-/*    Written and engineered 2008-2021 at the University of Edinburgh    */
-/*                                                                       */
 /*    Available as open-source under the MIT License                     */
 /*                                                                       */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -84,7 +82,13 @@ struct Quadratic {
   double mu;
   std::vector<double> lambda;
 
-  Quadratic(HighsLp lp_, ICrashOptions options_) : lp(lp_), options(options_) {}
+  Quadratic(HighsLp lp_, ICrashOptions options_)
+      : lp(lp_),
+        options(options_),
+        lp_objective(0.0),
+        quadratic_objective(0.0),
+        residual_norm_2(0.0),
+        mu(0.0) {}
 };
 
 // Functions: Call.
@@ -115,6 +119,6 @@ void reportOptions(const ICrashOptions& options);
 
 bool callCrossover(const HighsLp& lp, const HighsOptions& options,
                    const std::vector<double>& x_values, HighsSolution& solution,
-                   HighsBasis& basis);
+                   HighsBasis& basis, HighsCallback& callback);
 
 #endif

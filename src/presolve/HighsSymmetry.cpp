@@ -2,12 +2,7 @@
 /*                                                                       */
 /*    This file is part of the HiGHS linear optimization suite           */
 /*                                                                       */
-/*    Written and engineered 2008-2022 at the University of Edinburgh    */
-/*                                                                       */
 /*    Available as open-source under the MIT License                     */
-/*                                                                       */
-/*    Authors: Julian Hall, Ivet Galabova, Leona Gottwald and Michael    */
-/*    Feldmeier                                                          */
 /*                                                                       */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /**@file HighsSymmetry.cpp
@@ -20,10 +15,10 @@
 #include <algorithm>
 #include <numeric>
 
+#include "../extern/pdqsort/pdqsort.h"
 #include "mip/HighsCliqueTable.h"
 #include "mip/HighsDomain.h"
 #include "parallel/HighsParallel.h"
-#include "pdqsort/pdqsort.h"
 #include "util/HighsDisjointSets.h"
 
 void HighsSymmetryDetection::removeFixPoints() {
@@ -44,7 +39,6 @@ void HighsSymmetryDetection::removeFixPoints() {
                      [&](HighsInt vertex) {
                        if (cellSize(vertexToCell[vertex]) == 1) {
                          --unitCellIndex;
-                         HighsInt oldCellStart = vertexToCell[vertex];
                          vertexToCell[vertex] = unitCellIndex;
                          return true;
                        }
@@ -76,7 +70,7 @@ void HighsSymmetryDetection::removeFixPoints() {
       // if the cell number is different to the current cell number this is the
       // start of a new cell
       if (cellNumber != vertexToCell[vertex]) {
-        // remember the number of this cell to indetify its end
+        // remember the number of this cell to identify its end
         cellNumber = vertexToCell[vertex];
         // set the link of the cell start to point to its end
         currentPartitionLinks[cellStart] = i;
@@ -181,7 +175,6 @@ std::shared_ptr<const StabilizerOrbits>
 HighsSymmetries::computeStabilizerOrbits(const HighsDomain& localdom) {
   const auto& domchgStack = localdom.getDomainChangeStack();
   const auto& branchingPos = localdom.getBranchingPositions();
-  const auto& prevBounds = localdom.getPreviousBounds();
 
   StabilizerOrbits stabilizerOrbits;
   stabilizerOrbits.stabilizedCols.reserve(permutationColumns.size());
@@ -277,7 +270,6 @@ HighsInt StabilizerOrbits::orbitalFixing(HighsDomain& domain) const {
 
     if (fixcol != -1) {
       HighsInt oldNumFixed = numFixed;
-      double fixVal = domain.col_lower_[fixcol];
       auto oldSize = domain.getDomainChangeStack().size();
       if (domain.col_lower_[fixcol] == 1.0) {
         for (HighsInt j = orbitStarts[i]; j < orbitStarts[i + 1]; ++j) {
@@ -302,7 +294,9 @@ HighsInt StabilizerOrbits::orbitalFixing(HighsDomain& domain) const {
       if (newFixed != 0) {
         domain.propagate();
         if (domain.infeasible()) return numFixed;
-        if (domain.getDomainChangeStack().size() - oldSize > newFixed) i = -1;
+        if ((HighsInt)(domain.getDomainChangeStack().size() - oldSize) >
+            newFixed)
+          i = -1;
       }
     }
   }
@@ -542,7 +536,7 @@ HighsInt HighsOrbitopeMatrix::orbitalFixingForPackingOrbitope(
         ++numFixed;
         if (domain.infeasible()) {
           // this can happen due to deductions from earlier fixings
-          // otherwise it would have been caughgt by the infeasibility
+          // otherwise it would have been caught by the infeasibility
           // check within the next loop that goes over i
           // printf("packing orbitope propagation found infeasibility\n");
           return numFixed;
@@ -575,7 +569,7 @@ HighsInt HighsOrbitopeMatrix::orbitalFixingForPackingOrbitope(
       ++numFixed;
       if (domain.infeasible()) {
         // this can happen due to deductions from earlier fixings
-        // otherwise it would have been caughgt by the infeasibility
+        // otherwise it would have been caught by the infeasibility
         // check within the next loop that goes over i
         // printf("packing orbitope propagation found infeasibility\n");
         return numFixed;
@@ -815,7 +809,6 @@ bool HighsSymmetryDetection::updateCellMembership(HighsInt i, HighsInt cell,
   HighsInt vertex = currentPartition[i];
   if (vertexToCell[vertex] != cell) {
     // set new cell id
-    HighsInt oldCellStart = vertexToCell[vertex];
     vertexToCell[vertex] = cell;
     if (i != cell) currentPartitionLinks[i] = cell;
 
@@ -850,18 +843,18 @@ bool HighsSymmetryDetection::splitCell(HighsInt cell, HighsInt splitPoint) {
   // employ prefix pruning scheme as in bliss
   if (!firstLeaveCertificate.empty()) {
     firstLeavePrefixLen +=
-        (firstLeavePrefixLen == currNodeCertificate.size()) *
+        (firstLeavePrefixLen == (HighsInt)currNodeCertificate.size()) *
         (certificateVal == firstLeaveCertificate[currNodeCertificate.size()]);
     bestLeavePrefixLen +=
-        (bestLeavePrefixLen == currNodeCertificate.size()) *
+        (bestLeavePrefixLen == (HighsInt)currNodeCertificate.size()) *
         (certificateVal == bestLeaveCertificate[currNodeCertificate.size()]);
 
     // if the node certificate is not a prefix of the first leave's certificate
     // and it comes lexicographically after the certificate value of the
     // lexicographically smallest leave certificate we prune the node
-    if (firstLeavePrefixLen <= currNodeCertificate.size() &&
-        bestLeavePrefixLen <= currNodeCertificate.size()) {
-      u32 diffVal = bestLeavePrefixLen == currNodeCertificate.size()
+    if (firstLeavePrefixLen <= (HighsInt)currNodeCertificate.size() &&
+        bestLeavePrefixLen <= (HighsInt)currNodeCertificate.size()) {
+      u32 diffVal = bestLeavePrefixLen == (HighsInt)currNodeCertificate.size()
                         ? certificateVal
                         : currNodeCertificate[bestLeavePrefixLen];
       if (diffVal > bestLeaveCertificate[bestLeavePrefixLen]) return false;
@@ -1082,7 +1075,7 @@ bool HighsSymmetryDetection::distinguishVertex(HighsInt targetCell) {
 
 void HighsSymmetryDetection::backtrack(HighsInt backtrackStackNewEnd,
                                        HighsInt backtrackStackEnd) {
-  // we assume that we always backtrack from a leave node, i.e. a discrete
+  // we assume that we always backtrack from a leaf node, i.e. a discrete
   // partition therefore we do not need to remember the values of the hash
   // contributions as it is the indentity for each position and all new cells
   // are on the cell creation stack.
@@ -1289,7 +1282,7 @@ void HighsSymmetryDetection::loadModelAsGraph(const HighsLp& model,
     // if the cell number is different to the current cell number this is the
     // start of a new cell
     if (cellNumber != vertexToCell[vertex]) {
-      // remember the number of this cell to indetify its end
+      // remember the number of this cell to identify its end
       cellNumber = vertexToCell[vertex];
       // set the link of the cell start to point to its end
       currentPartitionLinks[cellStart] = i;
@@ -1377,7 +1370,7 @@ bool HighsSymmetryDetection::compareCurrentGraph(
     for (HighsInt j = Gstart[i]; j != Gend[i]; ++j)
       if (!otherGraph.find(std::make_tuple(vertexToCell[Gedge[j].first],
                                            colCell, Gedge[j].second))) {
-        // return which cell does not match in its neighborhood as this should
+        // return which cell does not match in its neighbourhood as this should
         // have been detected with the hashing it can very rarely happen due to
         // a hash collision. In such a case we want to backtrack to the last
         // time where we targeted this particular cell. Otherwise we could spent
@@ -1503,7 +1496,7 @@ HighsSymmetryDetection::computeComponentData(
          componentData.componentStarts.size());
   componentData.permComponentStarts.push_back(numUsedPerms);
 
-  HighsInt numComponents = componentData.componentStarts.size();
+  // HighsInt numComponents = componentData.componentStarts.size();
   // printf("found %d components\n", numComponents);
   componentData.componentStarts.push_back(numActiveCols);
 
@@ -1578,7 +1571,6 @@ bool HighsSymmetryDetection::isFullOrbitope(const ComponentData& componentData,
   orbitopeMatrix.numRows = orbitopeNumRows;
   orbitopeMatrix.rowLength = orbitopeOrbitSize;
   assert(componentSize == orbitopeMatrix.numRows * orbitopeMatrix.rowLength);
-  HighsInt orbitopeIndex = symmetries.orbitopes.size();
 
   const HighsInt* perm = symmetries.permutations.data() + p0 * numActiveCols;
   HighsHashTable<HighsInt> colSet;
@@ -1720,9 +1712,9 @@ void HighsSymmetryDetection::run(HighsSymmetries& symmetries) {
         HighsInt wrongCell = -1;
         HighsInt backtrackDepth = nodeStack.size() - 1;
         assert(currNodeCertificate.size() == firstLeaveCertificate.size());
-        if (firstLeavePrefixLen == currNodeCertificate.size() ||
-            bestLeavePrefixLen == currNodeCertificate.size()) {
-          if (firstLeavePrefixLen == currNodeCertificate.size() &&
+        if (firstLeavePrefixLen == (HighsInt)currNodeCertificate.size() ||
+            bestLeavePrefixLen == (HighsInt)currNodeCertificate.size()) {
+          if (firstLeavePrefixLen == (HighsInt)currNodeCertificate.size() &&
               compareCurrentGraph(firstLeaveGraph, wrongCell)) {
             HighsInt k = (numAutomorphisms++) & 63;
             HighsInt* permutation = automorphisms.data() + k * numVertices;
@@ -1749,7 +1741,8 @@ void HighsSymmetryDetection::run(HighsSymmetries& symmetries) {
             }
             backtrackDepth = std::min(backtrackDepth, firstPathDepth);
           } else if (!bestLeavePartition.empty() &&
-                     bestLeavePrefixLen == currNodeCertificate.size() &&
+                     bestLeavePrefixLen ==
+                         (HighsInt)currNodeCertificate.size() &&
                      compareCurrentGraph(bestLeaveGraph, wrongCell)) {
             HighsInt k = (numAutomorphisms++) & 63;
             HighsInt* permutation = automorphisms.data() + k * numVertices;
@@ -1776,7 +1769,8 @@ void HighsSymmetryDetection::run(HighsSymmetries& symmetries) {
             }
 
             backtrackDepth = std::min(backtrackDepth, bestPathDepth);
-          } else if (bestLeavePrefixLen < currNodeCertificate.size() &&
+          } else if (bestLeavePrefixLen <
+                         (HighsInt)currNodeCertificate.size() &&
                      currNodeCertificate[bestLeavePrefixLen] >
                          bestLeaveCertificate[bestLeavePrefixLen]) {
             // certificate value is lexicographically above the smallest one
@@ -1790,7 +1784,7 @@ void HighsSymmetryDetection::run(HighsSymmetries& symmetries) {
           } else {
             // This case can be caused by a hash collision which was now
             // detected in the graph comparison call. The graph comparison call
-            // will return the cell where the vertex neighborhood caused a
+            // will return the cell where the vertex neighbourhood caused a
             // mismatch on the edges. This would have been detected by
             // an exact partition refinement when we targeted that cell the last
             // time, so that is where we can backtrack to.
@@ -1808,8 +1802,8 @@ void HighsSymmetryDetection::run(HighsSymmetries& symmetries) {
           // than the current best leave, because its prefix length is smaller
           // than the best leaves and it would have been already pruned if
           // it's certificate value was larger unless it is equal to the first
-          // leave nodes certificate value which is caught by the first case
-          // of the if confition. Hence, having a lexicographically smaller
+          // leaf nodes certificate value which is caught by the first case
+          // of the if condition. Hence, having a lexicographically smaller
           // certificate value than the best leave is the only way to get
           // here.
           assert(bestLeaveCertificate[bestLeavePrefixLen] >

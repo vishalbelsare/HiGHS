@@ -2,12 +2,7 @@
 /*                                                                       */
 /*    This file is part of the HiGHS linear optimization suite           */
 /*                                                                       */
-/*    Written and engineered 2008-2022 at the University of Edinburgh    */
-/*                                                                       */
 /*    Available as open-source under the MIT License                     */
-/*                                                                       */
-/*    Authors: Julian Hall, Ivet Galabova, Leona Gottwald and Michael    */
-/*    Feldmeier                                                          */
 /*                                                                       */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 #include "mip/HighsDebugSol.h"
@@ -178,7 +173,7 @@ void HighsDebugSol::checkRowAggregation(const HighsLp& lp,
   dbgSol.dual_valid = false;
   dbgSol.value_valid = true;
   dbgSol.col_value = debugSolution;
-  calculateRowValues(lp, dbgSol);
+  calculateRowValuesQuad(lp, dbgSol);
   for (HighsInt i = 0; i < Rlen; ++i) {
     if (Rindex[i] < lp.num_col_)
       violation += dbgSol.col_value[Rindex[i]] * Rvalue[i];

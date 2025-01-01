@@ -2,12 +2,7 @@
 /*                                                                       */
 /*    This file is part of the HiGHS linear optimization suite           */
 /*                                                                       */
-/*    Written and engineered 2008-2022 at the University of Edinburgh    */
-/*                                                                       */
 /*    Available as open-source under the MIT License                     */
-/*                                                                       */
-/*    Authors: Julian Hall, Ivet Galabova, Leona Gottwald and Michael    */
-/*    Feldmeier                                                          */
 /*                                                                       */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /**@file
@@ -139,8 +134,7 @@ void checkDualFeasibility(const State& state, KktConditionDetails& details) {
       details.checked++;
       double infeas = 0;
       // j not in L or U
-      if (state.colLower[i] <= -kHighsInf &&
-          state.colUpper[i] >= kHighsInf) {
+      if (state.colLower[i] <= -kHighsInf && state.colUpper[i] >= kHighsInf) {
         if (fabs(state.colDual[i]) > tol) {
           if (dev_print == 1)
             std::cout << "Dual feasibility fail: l=-inf, x[" << i
@@ -264,10 +258,12 @@ void checkComplementarySlackness(const State& state,
         if (fabs(state.colDual[i]) > tol &&
             fabs(state.colValue[i] - state.colUpper[i]) > tol) {
           if (dev_print)
+            // clang-format off
             std::cout << "Comp. slackness fail: "
                       << "l[" << i << "]=" << state.colLower[i] << ", x[" << i
                       << "]=" << state.colValue[i] << ", z[" << i
                       << "]=" << state.colDual[i] << std::endl;
+          // clang-format on
           infeas = fabs(state.colDual[i]);
         }
       }

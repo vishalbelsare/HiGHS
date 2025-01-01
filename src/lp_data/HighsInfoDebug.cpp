@@ -2,12 +2,7 @@
 /*                                                                       */
 /*    This file is part of the HiGHS linear optimization suite           */
 /*                                                                       */
-/*    Written and engineered 2008-2022 at the University of Edinburgh    */
-/*                                                                       */
 /*    Available as open-source under the MIT License                     */
-/*                                                                       */
-/*    Authors: Julian Hall, Ivet Galabova, Leona Gottwald and Michael    */
-/*    Feldmeier                                                          */
 /*                                                                       */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /**@file lp_data/HighsInfoDebug.cpp
@@ -36,6 +31,7 @@ HighsDebugStatus debugInfo(const HighsOptions& options, const HighsLp& lp,
     case HighsModelStatus::kSolveError:
     case HighsModelStatus::kPostsolveError:
     case HighsModelStatus::kModelEmpty:
+    case HighsModelStatus::kMemoryLimit:
       // Should have no info, so check this and return
       assert(!have_primal_solution);
       assert(!have_dual_solution);
@@ -51,6 +47,7 @@ HighsDebugStatus debugInfo(const HighsOptions& options, const HighsLp& lp,
     case HighsModelStatus::kUnboundedOrInfeasible:
     case HighsModelStatus::kTimeLimit:
     case HighsModelStatus::kIterationLimit:
+    case HighsModelStatus::kSolutionLimit:
     case HighsModelStatus::kUnknown:
       // Should have info
       assert(have_info == true);

@@ -1,23 +1,20 @@
 #ifndef __SRC_LIB_QUASS_HPP__
 #define __SRC_LIB_QUASS_HPP__
 
-#include "basis.hpp"
-#include "eventhandler.hpp"
-#include "factor.hpp"
-#include "instance.hpp"
-#include "runtime.hpp"
+#include "qpsolver/basis.hpp"
+#include "qpsolver/eventhandler.hpp"
+#include "qpsolver/factor.hpp"
+#include "qpsolver/instance.hpp"
+#include "qpsolver/runtime.hpp"
 
 struct Quass {
   Quass(Runtime& rt);
 
-  void solve(const Vector& x0, const Vector& ra, Basis& b0);
-
-  void solve();
+  void solve(const QpVector& x0, const QpVector& ra, Basis& b0,
+             HighsTimer& timer);
 
  private:
   Runtime& runtime;
-
-  void loginformation(Runtime& rt, Basis& basis, CholeskyFactor& factor);
 };
 
 #endif

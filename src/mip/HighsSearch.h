@@ -2,12 +2,7 @@
 /*                                                                       */
 /*    This file is part of the HiGHS linear optimization suite           */
 /*                                                                       */
-/*    Written and engineered 2008-2022 at the University of Edinburgh    */
-/*                                                                       */
 /*    Available as open-source under the MIT License                     */
-/*                                                                       */
-/*    Authors: Julian Hall, Ivet Galabova, Leona Gottwald and Michael    */
-/*    Feldmeier                                                          */
 /*                                                                       */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 #ifndef HIGHS_SEARCH_H_
@@ -35,7 +30,7 @@ class HighsSearch {
   HighsMipSolver& mipsolver;
   HighsLpRelaxation* lp;
   HighsDomain localdom;
-  HighsPseudocost pseudocost;
+  HighsPseudocost& pseudocost;
   HighsRandom random;
   int64_t nnodes;
   int64_t lpiterations;
@@ -98,6 +93,7 @@ class HighsSearch {
              std::shared_ptr<const StabilizerOrbits> stabilizerOrbits = nullptr)
         : lower_bound(parentlb),
           estimate(parentestimate),
+          branching_point(0.0),
           lp_objective(-kHighsInf),
           other_child_lb(parentlb),
           nodeBasis(std::move(parentBasis)),
@@ -142,7 +138,7 @@ class HighsSearch {
   bool orbitsValidInChildNode(const HighsDomainChange& branchChg) const;
 
  public:
-  HighsSearch(HighsMipSolver& mipsolver, const HighsPseudocost& pseudocost);
+  HighsSearch(HighsMipSolver& mipsolver, HighsPseudocost& pseudocost);
 
   void setRINSNeighbourhood(const std::vector<double>& basesol,
                             const std::vector<double>& relaxsol);

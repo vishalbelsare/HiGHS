@@ -2,12 +2,7 @@
 /*                                                                       */
 /*    This file is part of the HiGHS linear optimization suite           */
 /*                                                                       */
-/*    Written and engineered 2008-2022 at the University of Edinburgh    */
-/*                                                                       */
 /*    Available as open-source under the MIT License                     */
-/*                                                                       */
-/*    Authors: Julian Hall, Ivet Galabova, Leona Gottwald and Michael    */
-/*    Feldmeier                                                          */
 /*                                                                       */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /**@file mip/HighsTableauSeparator.cpp
@@ -17,12 +12,12 @@
 
 #include <algorithm>
 
+#include "../extern/pdqsort/pdqsort.h"
 #include "mip/HighsCutGeneration.h"
 #include "mip/HighsLpAggregator.h"
 #include "mip/HighsLpRelaxation.h"
 #include "mip/HighsMipSolverData.h"
 #include "mip/HighsTransformedLp.h"
-#include "pdqsort/pdqsort.h"
 
 struct FractionalInteger {
   double fractionality;
@@ -67,31 +62,30 @@ void HighsTableauSeparator::separateLpSolution(HighsLpRelaxation& lpRelaxation,
   std::vector<FractionalInteger> fractionalBasisvars;
   fractionalBasisvars.reserve(numRow);
   for (HighsInt i = 0; i < numRow; ++i) {
-    double fractionality;
+    double my_fractionality;
     if (basisinds[i] >= numCol) {
       HighsInt row = basisinds[i] - numCol;
 
       if (!lpRelaxation.isRowIntegral(row)) continue;
 
-      double solval = lpSolution.row_value[row];
-      fractionality = std::fabs(std::round(solval) - solval);
+      my_fractionality = fractionality(lpSolution.row_value[row]);
     } else {
       HighsInt col = basisinds[i];
       if (mip.variableType(col) == HighsVarType::kContinuous) continue;
 
-      double solval = lpSolution.col_value[col];
-      fractionality = std::fabs(std::round(solval) - solval);
+      my_fractionality = fractionality(lpSolution.col_value[col]);
     }
 
-    if (fractionality < 1000 * mip.mipdata_->feastol) continue;
+    if (my_fractionality < 1000 * mip.mipdata_->feastol) continue;
 
-    fractionalBasisvars.emplace_back(i, fractionality);
+    fractionalBasisvars.emplace_back(i, my_fractionality);
   }
 
   if (fractionalBasisvars.empty()) return;
   int64_t maxTries = 5000 + getNumCalls() * 50 +
-                     int64_t(0.1 * (mip.mipdata_->total_lp_iterations -
-                                    mip.mipdata_->heuristic_lp_iterations));
+                     (mip.mipdata_->total_lp_iterations -
+                      mip.mipdata_->heuristic_lp_iterations) /
+                         10;
   if (numTries >= maxTries) return;
 
   maxTries -= numTries;
@@ -102,7 +96,7 @@ void HighsTableauSeparator::separateLpSolution(HighsLpRelaxation& lpRelaxation,
                      std::min(numRow,
                               (HighsInt)mip.mipdata_->integral_cols.size()))});
 
-  if (fractionalBasisvars.size() > maxTries) {
+  if ((HighsInt)fractionalBasisvars.size() > maxTries) {
     const double* edgeWt = lpRelaxation.getLpSolver().getDualEdgeWeights();
     if (edgeWt) {
       // printf("choosing %ld/%zu with DSE weights\n", maxTries,
@@ -147,7 +141,6 @@ void HighsTableauSeparator::separateLpSolution(HighsLpRelaxation& lpRelaxation,
   numTries += fractionalBasisvars.size();
 
   for (auto& fracvar : fractionalBasisvars) {
-    HighsInt i = fracvar.basisIndex;
     if (lpSolver.getBasisInverseRowSparse(fracvar.basisIndex, rowEpBuffer) !=
         HighsStatus::kOk)
       continue;
@@ -209,14 +202,14 @@ void HighsTableauSeparator::separateLpSolution(HighsLpRelaxation& lpRelaxation,
 
     lpAggregator.getCurrentAggregation(baseRowInds, baseRowVals, false);
 
-    if (baseRowInds.size() - fracvar.row_ep.size() >
-        1000 + 0.1 * mip.numCol()) {
+    if (10 * (baseRowInds.size() - fracvar.row_ep.size()) >
+        10000 + static_cast<size_t>(mip.numCol())) {
       lpAggregator.clear();
       continue;
     }
 
     HighsInt len = baseRowInds.size();
-    if (len > fracvar.row_ep.size()) {
+    if (len > (HighsInt)fracvar.row_ep.size()) {
       double maxAbsVal = 0.0;
       double minAbsVal = kHighsInf;
       for (HighsInt i = 0; i < len; ++i) {

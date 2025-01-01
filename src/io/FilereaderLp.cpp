@@ -2,12 +2,7 @@
 /*                                                                       */
 /*    This file is part of the HiGHS linear optimization suite           */
 /*                                                                       */
-/*    Written and engineered 2008-2022 at the University of Edinburgh    */
-/*                                                                       */
 /*    Available as open-source under the MIT License                     */
-/*                                                                       */
-/*    Authors: Julian Hall, Ivet Galabova, Leona Gottwald and Michael    */
-/*    Feldmeier                                                          */
 /*                                                                       */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /**@file io/FilereaderLp.cpp
@@ -17,6 +12,7 @@
 #include "io/FilereaderLp.h"
 
 #include <cstdarg>
+#include <cstdio>
 #include <exception>
 #include <map>
 
@@ -24,7 +20,7 @@
 #include "lp_data/HighsLpUtils.h"
 
 const bool original_double_format = false;
-const bool allow_model_names = false;
+const bool allow_model_names = true;
 
 FilereaderRetcode FilereaderLp::readModelFromFile(const HighsOptions& options,
                                                   const std::string filename,
@@ -48,7 +44,7 @@ FilereaderRetcode FilereaderLp::readModelFromFile(const HighsOptions& options,
     lp.row_names_.resize(m.constraints.size());
     lp.integrality_.assign(lp.num_col_, HighsVarType::kContinuous);
     HighsInt num_continuous = 0;
-    for (HighsUInt i = 0; i < m.variables.size(); i++) {
+    for (size_t i = 0; i < m.variables.size(); i++) {
       varindex[m.variables[i]->name] = i;
       lp.col_lower_.push_back(m.variables[i]->lowerbound);
       lp.col_upper_.push_back(m.variables[i]->upperbound);
@@ -66,14 +62,15 @@ FilereaderRetcode FilereaderLp::readModelFromFile(const HighsOptions& options,
       }
     }
     // Clear lp.integrality_ if problem is pure LP
-    if (num_continuous == m.variables.size()) lp.integrality_.clear();
+    if (static_cast<size_t>(num_continuous) == m.variables.size())
+      lp.integrality_.clear();
     // get objective
     lp.objective_name_ = m.objective->name;
     // ToDo: Fix m.objective->offset and then use it here
     //
     lp.offset_ = m.objective->offset;
     lp.col_cost_.resize(lp.num_col_, 0.0);
-    for (HighsUInt i = 0; i < m.objective->linterms.size(); i++) {
+    for (size_t i = 0; i < m.objective->linterms.size(); i++) {
       std::shared_ptr<LinTerm> lt = m.objective->linterms[i];
       lp.col_cost_[varindex[lt->var->name]] = lt->coef;
     }
@@ -97,7 +94,7 @@ FilereaderRetcode FilereaderLp::readModelFromFile(const HighsOptions& options,
     // nonzero entries
     unsigned int qnnz = 0;
     for (std::shared_ptr<Variable> var : m.variables)
-      for (unsigned int i = 0; i < mat[var].size(); i++)
+      for (size_t i = 0; i < mat[var].size(); i++)
         if (mat2[var][i]) qnnz++;
     if (qnnz) {
       hessian.dim_ = m.variables.size();
@@ -108,7 +105,7 @@ FilereaderRetcode FilereaderLp::readModelFromFile(const HighsOptions& options,
       assert((int)hessian.start_.size() == 0);
       for (std::shared_ptr<Variable> var : m.variables) {
         hessian.start_.push_back(qnnz);
-        for (unsigned int i = 0; i < mat[var].size(); i++) {
+        for (size_t i = 0; i < mat[var].size(); i++) {
           double value = mat2[var][i];
           if (value) {
             hessian.index_.push_back(varindex[mat[var][i]->name]);
@@ -127,10 +124,10 @@ FilereaderRetcode FilereaderLp::readModelFromFile(const HighsOptions& options,
     std::map<std::shared_ptr<Variable>, std::vector<unsigned int>>
         consofvarmap_index;
     std::map<std::shared_ptr<Variable>, std::vector<double>> consofvarmap_value;
-    for (HighsUInt i = 0; i < m.constraints.size(); i++) {
+    for (size_t i = 0; i < m.constraints.size(); i++) {
       std::shared_ptr<Constraint> con = m.constraints[i];
       lp.row_names_[i] = con->expr->name;
-      for (HighsUInt j = 0; j < con->expr->linterms.size(); j++) {
+      for (size_t j = 0; j < con->expr->linterms.size(); j++) {
         std::shared_ptr<LinTerm> lt = con->expr->linterms[j];
         if (consofvarmap_index.count(lt->var) == 0) {
           consofvarmap_index[lt->var] = std::vector<unsigned int>();
@@ -142,6 +139,12 @@ FilereaderRetcode FilereaderLp::readModelFromFile(const HighsOptions& options,
 
       lp.row_lower_.push_back(con->lowerbound);
       lp.row_upper_.push_back(con->upperbound);
+
+      if (!con->expr->quadterms.empty()) {
+        highsLogUser(options.log_options, HighsLogType::kError,
+                     "Quadratic constraints not supported by HiGHS\n");
+        return FilereaderRetcode::kParserError;
+      }
     }
 
     // Check for empty row names, giving them a special name if possible
@@ -177,7 +180,7 @@ FilereaderRetcode FilereaderLp::readModelFromFile(const HighsOptions& options,
     for (HighsInt i = 0; i < lp.num_col_; i++) {
       std::shared_ptr<Variable> var = m.variables[i];
       lp.a_matrix_.start_.push_back(nz);
-      for (HighsUInt j = 0; j < consofvarmap_index[var].size(); j++) {
+      for (size_t j = 0; j < consofvarmap_index[var].size(); j++) {
         double value = consofvarmap_value[var][j];
         if (value) {
           lp.a_matrix_.index_.push_back(consofvarmap_index[var][j]);
@@ -210,14 +213,16 @@ FilereaderRetcode FilereaderLp::readModelFromFile(const HighsOptions& options,
 void FilereaderLp::writeToFile(FILE* file, const char* format, ...) {
   va_list argptr;
   va_start(argptr, format);
-  char stringbuffer[LP_MAX_LINE_LENGTH + 1];
-  HighsInt tokenlength = vsprintf(stringbuffer, format, argptr);
+  std::array<char, LP_MAX_LINE_LENGTH + 1> stringbuffer = {};
+  HighsInt tokenlength =
+      vsnprintf(stringbuffer.data(), stringbuffer.size(), format, argptr);
+  va_end(argptr);
   if (this->linelength + tokenlength >= LP_MAX_LINE_LENGTH) {
     fprintf(file, "\n");
-    fprintf(file, "%s", stringbuffer);
+    fprintf(file, "%s", stringbuffer.data());
     this->linelength = tokenlength;
   } else {
-    fprintf(file, "%s", stringbuffer);
+    fprintf(file, "%s", stringbuffer.data());
     this->linelength += tokenlength;
   }
 }
@@ -281,9 +286,11 @@ HighsStatus FilereaderLp::writeModelToFile(const HighsOptions& options,
   ar_matrix.ensureRowwise();
 
   const bool has_col_names =
-      allow_model_names && lp.col_names_.size() == lp.num_col_;
+      allow_model_names &&
+      lp.col_names_.size() == static_cast<size_t>(lp.num_col_);
   const bool has_row_names =
-      allow_model_names && lp.row_names_.size() == lp.num_row_;
+      allow_model_names &&
+      lp.row_names_.size() == static_cast<size_t>(lp.num_row_);
   FILE* file = fopen(filename.c_str(), "w");
 
   // write comment at the start of the file
@@ -357,6 +364,10 @@ HighsStatus FilereaderLp::writeModelToFile(const HighsOptions& options,
       this->writeToFileValue(file, lp.row_lower_[iRow], true);
       this->writeToFileLineend(file);
     } else {
+      // Need to distinguish the names when writing out boxed
+      // constraint row as two single-sided constraints
+      const bool boxed =
+          lp.row_lower_[iRow] > -kHighsInf && lp.row_upper_[iRow] < kHighsInf;
       if (lp.row_lower_[iRow] > -kHighsInf) {
         // Has a lower bound
         if (has_row_names) {
@@ -364,7 +375,11 @@ HighsStatus FilereaderLp::writeModelToFile(const HighsOptions& options,
         } else {
           this->writeToFileCon(file, iRow);
         }
-        this->writeToFile(file, "lo:");
+        if (boxed) {
+          this->writeToFile(file, "lo:");
+        } else {
+          this->writeToFile(file, ":");
+        }
         this->writeToFileMatrixRow(file, iRow, ar_matrix, lp.col_names_);
         this->writeToFile(file, " >=");
         this->writeToFileValue(file, lp.row_lower_[iRow], true);
@@ -377,7 +392,11 @@ HighsStatus FilereaderLp::writeModelToFile(const HighsOptions& options,
         } else {
           this->writeToFileCon(file, iRow);
         }
-        this->writeToFile(file, "up:");
+        if (boxed) {
+          this->writeToFile(file, "up:");
+        } else {
+          this->writeToFile(file, ":");
+        }
         this->writeToFileMatrixRow(file, iRow, ar_matrix, lp.col_names_);
         this->writeToFile(file, " <=");
         this->writeToFileValue(file, lp.row_upper_[iRow], true);
@@ -390,27 +409,47 @@ HighsStatus FilereaderLp::writeModelToFile(const HighsOptions& options,
   this->writeToFile(file, "bounds");
   this->writeToFileLineend(file);
   for (HighsInt iCol = 0; iCol < lp.num_col_; iCol++) {
+    const bool default_bounds =
+        lp.col_lower_[iCol] == 0 && lp.col_upper_[iCol] == kHighsInf;
+    if (default_bounds) continue;
     if (lp.col_lower_[iCol] <= -kHighsInf && lp.col_upper_[iCol] >= kHighsInf) {
+      // Free variable
       if (has_col_names) {
         this->writeToFileVar(file, lp.col_names_[iCol]);
       } else {
         this->writeToFileVar(file, iCol);
       }
       this->writeToFile(file, " free");
-    } else {
-      this->writeToFileValue(file, lp.col_lower_[iCol], false);
-      this->writeToFile(file, " <=");
+    } else if (lp.col_lower_[iCol] == lp.col_upper_[iCol]) {
+      // Fixed variable
       if (has_col_names) {
         this->writeToFileVar(file, lp.col_names_[iCol]);
       } else {
         this->writeToFileVar(file, iCol);
       }
-      this->writeToFile(file, " <=");
+      this->writeToFile(file, " =");
       this->writeToFileValue(file, lp.col_upper_[iCol], false);
+    } else {
+      assert(!default_bounds);
+      // Non-default bound
+      if (lp.col_lower_[iCol] != 0) {
+        // Nonzero lower bound
+        this->writeToFileValue(file, lp.col_lower_[iCol], false);
+        this->writeToFile(file, " <=");
+      }
+      if (has_col_names) {
+        this->writeToFileVar(file, lp.col_names_[iCol]);
+      } else {
+        this->writeToFileVar(file, iCol);
+      }
+      if (lp.col_upper_[iCol] < kHighsInf) {
+        // Finite upper bound
+        this->writeToFile(file, " <=");
+        this->writeToFileValue(file, lp.col_upper_[iCol], false);
+      }
     }
     this->writeToFileLineend(file);
   }
-
   if (lp.integrality_.size() > 0) {
     // write binary section
     this->writeToFile(file, "bin");

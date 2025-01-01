@@ -1,20 +1,20 @@
-#include "HighsStatus.h"
+#include "HCheckConfig.h"
 #include "catch.hpp"
-#include "ipm/ipx/include/ipx_status.h"
-#include "ipm/ipx/src/lp_solver.h"
+#include "ipm/ipx/ipx_status.h"
+#include "ipm/ipx/lp_solver.h"
 #include "lp_data/HConst.h"
+#include "lp_data/HighsCallback.h"
 #include "lp_data/HighsLp.h"
+#include "lp_data/HighsStatus.h"
 #include "parallel/HighsParallel.h"
 
-// No commas i// Copyright (c) 2018 ERGO-Code. See license.txt for license.
-//
 // Example for using IPX from its C++ interface. The program solves the Netlib
 // problem afiro.
 
 #include <cmath>
 #include <iostream>
 
-#include "lp_solver.h"
+#include "ipm/ipx/lp_solver.h"
 
 const bool dev_run = false;
 
@@ -43,6 +43,7 @@ TEST_CASE("test-ipx", "[highs_ipx]") {
   ipx::LpSolver lps;
   ipx::Parameters parameters;
   if (!dev_run) parameters.display = 0;
+  parameters.highs_logging = false;
   lps.SetParameters(parameters);
 
   // Solve the LP.
@@ -51,6 +52,10 @@ TEST_CASE("test-ipx", "[highs_ipx]") {
   REQUIRE(load_status == 0);
 
   highs::parallel::initialize_scheduler();
+
+  HighsCallback callback;
+  // Set pointer to null callback
+  lps.SetCallback(&callback);
 
   Int status = lps.Solve();
   bool is_solved = status == IPX_STATUS_solved;
